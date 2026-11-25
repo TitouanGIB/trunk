@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VLAN & Trunk 802.1Q expliqués en animation</title>
+  <meta name="description" content="Simulateur animé et pédagogique : VLAN, ports access, trunk 802.1Q et routage inter-VLAN (router-on-a-stick) entre deux machines sur un même switch.">
+  <meta name="theme-color" content="#0b1020">
+  <meta property="og:title" content="VLAN & Trunk 802.1Q expliqués en animation">
+  <meta property="og:description" content="Suivez chaque trame : tag, détag, diffusion, routage inter-VLAN. Avec labo de dépannage, configs Cisco et quiz.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <a class="skip" href="#simulateur">Aller au simulateur</a>
+
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="brand" href="#top" aria-label="Accueil">
+        <img src="assets/img/favicon.svg" alt="" width="28" height="28">
+        <span>VLAN<b>·</b>Trunk</span>
+      </a>
+      <nav class="nav" aria-label="Sections">
+        <a href="#simulateur">Simulateur</a>
+        <a href="#labo">Labo</a>
+        <a href="#theorie">Théorie</a>
+        <a href="#config">Config</a>
+        <a href="#quiz">Quiz</a>
+      </nav>
+      <button id="theme-toggle" class="icon-btn" type="button" aria-label="Basculer thème clair/sombre" title="Thème clair / sombre">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path class="sun" d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.66-5.66 1.41-1.41M4.93 19.07l1.41-1.41m0-11.32L4.93 4.93m14.14 14.14-1.41-1.41M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z"/><path class="moon" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- ================= HERO ================= -->
+    <section class="hero wrap">
+      <p class="eyebrow">Réseau · Couche 2 / Couche 3</p>
+      <h1>VLAN &amp; trunk 802.1Q,<br><span class="grad">trame par trame</span></h1>
+      <p class="lead">Deux PC sur le <strong>même switch</strong>, mais dans deux VLAN différents. Un routeur derrière, relié par un
+        <strong>unique câble trunk</strong>. Suivez chaque trame : quand le tag 802.1Q apparaît, quand il disparaît, et
+        comment le routeur fait passer le trafic d'un VLAN à l'autre.</p>
+      <div class="hero-cta">
+        <a class="btn primary" href="#simulateur">Lancer l'animation</a>
+        <a class="btn" href="#theorie">Lire la théorie</a>
+      </div>
+      <ul class="hero-facts">
+        <li><span class="vchip v10">VLAN 10</span> COMPTA · 192.168.10.0/24</li>
+        <li><span class="vchip v20">VLAN 20</span> RH · 192.168.20.0/24</li>
+        <li><span class="vchip trunk">TRUNK</span> SW1 Gi0/1 ⇄ R1 G0/0</li>
+      </ul>
+    </section>
+
+    <!-- ================= SIMULATEUR ================= -->
+    <section id="simulateur" class="section wrap" aria-labelledby="sim-title">
+      <div class="section-head">
+        <h2 id="sim-title">Simulateur</h2>
+        <p>Choisissez un scénario, puis avancez étape par étape (<kbd>←</kbd> <kbd>→</kbd>) ou lancez la lecture (<kbd>Espace</kbd>).</p>
+      </div>
+
+      <div id="scenarios" class="scenarios" role="tablist" aria-label="Scénarios"></div>
+
+      <div class="sim-grid">
+        <div class="card topo-card">
+          <svg id="topo" viewBox="0 0 900 565" role="img" aria-label="Topologie : routeur R1 relié en trunk au switch SW1, lui-même relié à PC1 (VLAN 10) et PC2 (VLAN 20) par des ports access"></svg>
+          <div class="legend" aria-label="Légende">
+            <span><i class="lg-pkt tagged"></i>Trame taguée 802.1Q</span>
+            <span><i class="lg-pkt"></i>Trame non taguée</span>
+            <span><i class="lg-dot b"></i>Broadcast</span>
+            <span><i class="lg-x"></i>Trame jetée</span>
+            <span><i class="lg-block"></i>Non transmise</span>
+          </div>
+          <div class="controls" role="group" aria-label="Contrôles de l'animation">
+            <button id="btn-restart" class="icon-btn" type="button" title="Revenir au début (Début)" aria-label="Revenir au début">⏮</button>
+            <button id="btn-prev" class="btn" type="button" title="Étape précédente (←)">◀ Précédent</button>
+            <button id="btn-play" class="btn primary" type="button" aria-pressed="false">▶ Lecture</button>
+            <button id="btn-next" class="btn" type="button" title="Étape suivante (→)">Suivant ▶</button>
+            <button id="btn-replay" class="icon-btn" type="button" title="Rejouer l'étape" aria-label="Rejouer l'étape">↻</button>
+            <label class="speed">Vitesse
+              <select id="speed">
+                <option value="0.5">×0,5</option>
+                <option value="1" selected>×1</option>
+                <option value="1.5">×1,5</option>
+                <option value="2">×2</option>
+              </select>
+            </label>
+          </div>
+          <div class="progress" aria-hidden="true"><div id="progress-fill"></div></div>
+        </div>
+
+        <div class="side">
+          <article id="explain" class="card explain" aria-live="polite">
+            <div class="ex-top"><span id="ex-phase" class="phase"></span><span id="ex-count" class="count"></span></div>
+            <h3 id="ex-title"></h3>
+            <div id="ex-body" class="ex-body"></div>
+          </article>
+          <details class="card log-card" open>
+            <summary>Déroulé du scénario</summary>
+            <ol id="steplog" class="steplog"></ol>
+          </details>
+        </div>
+      </div>
+
+      <div class="card insp-card">
+        <h3 class="card-title">Inspecteur de trame <small>(façon Wireshark)</small></h3>
+        <div id="inspector"></div>
+      </div>
+
+      <div class="tables">
+        <div class="card tbl-card">
+          <h3 class="card-title">SW1 · table MAC</h3>
+          <table id="tbl-mac"><thead><tr><th>VLAN</th><th>MAC</th><th>Port</th><th>Type</th></tr></thead><tbody></tbody></table>
+        </div>
+        <div class="card tbl-card">
+          <h3 class="card-title">R1 · table de routage</h3>
+          <table id="tbl-route"><thead><tr><th></th><th>Réseau</th><th>Interface</th></tr></thead><tbody></tbody></table>
+          <h3 class="card-title sub">R1 · table ARP</h3>
+          <table id="tbl-arp-r"><thead><tr><th>IP</th><th>MAC</th><th>Interface</th></tr></thead><tbody></tbody></table>
+        </div>
+        <div class="card tbl-card">
+          <h3 class="card-title">PC1 · cache ARP</h3>
+          <table id="tbl-arp-pc1"><thead><tr><th>IP</th><th>MAC</th></tr></thead><tbody></tbody></table>
+          <h3 class="card-title sub">PC2 · cache ARP</h3>
+          <table id="tbl-arp-pc2"><thead><tr><th>IP</th><th>MAC</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= LABO ================= -->
+    <section id="labo" class="section wrap" aria-labelledby="lab-title">
+      <div class="section-head">
+        <h2 id="lab-title">Labo de dépannage</h2>
+        <p>Modifiez la configuration du switch et du routeur, puis simulez. Le comportement découle réellement de vos choix :
+          diffusion, tag, routage… ou panne. Le bouton « Panne aléatoire » vous lance un défi.</p>
+      </div>
+      <div class="lab-grid">
+        <form id="lab-form" class="card lab-form">
+          <fieldset>
+            <legend>SW1 · ports access</legend>
+            <label>Fa0/1 (PC1, 192.168.10.10)
+              <select name="p1"><option value="10">VLAN 10</option><option value="20">VLAN 20</option></select></label>
+            <label>Fa0/2 (PC2, 192.168.20.10)
+              <select name="p2"><option value="10">VLAN 10</option><option value="20">VLAN 20</option></select></label>
+          </fieldset>
+          <fieldset>
+            <legend>SW1 · trunk Gi0/1 · VLAN autorisés</legend>
+            <label class="chk"><input type="checkbox" name="allowed" value="10"> VLAN 10</label>
+            <label class="chk"><input type="checkbox" name="allowed" value="20"> VLAN 20</label>
+          </fieldset>
+          <fieldset>
+            <legend>R1 · sous-interfaces</legend>
+            <label class="chk"><input type="checkbox" name="subs" value="10"> G0/0.10 · dot1Q 10 · 192.168.10.1</label>
+            <label class="chk"><input type="checkbox" name="subs" value="20"> G0/0.20 · dot1Q 20 · 192.168.20.1</label>
+          </fieldset>
+          <p id="lab-status" class="lab-status"></p>
+          <div class="lab-actions">
+            <button class="btn primary" type="submit">Simuler un ping PC1 → PC2</button>
+            <button id="lab-random" class="btn" type="button">🎲 Panne aléatoire</button>
+            <button id="lab-reset" class="btn ghost" type="button">Réinitialiser</button>
+          </div>
+        </form>
+        <div class="card lab-preview">
+          <h3 class="card-title">Configuration équivalente <button class="copy" type="button" data-copy="#lab-sw">Copier</button></h3>
+          <pre id="lab-sw" class="code small"></pre>
+          <h3 class="card-title sub">Routeur <button class="copy" type="button" data-copy="#lab-r">Copier</button></h3>
+          <pre id="lab-r" class="code small"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= THEORIE ================= -->
+    <section id="theorie" class="section wrap" aria-labelledby="th-title">
+      <div class="section-head">
+        <h2 id="th-title">La théorie, en clair</h2>
+      </div>
+
+      <div class="theory">
+        <article class="card">
+          <h3>1 · Qu'est-ce qu'un VLAN ?</h3>
+          <p>Un <strong>VLAN</strong> (<em>Virtual LAN</em>) découpe un switch physique en plusieurs switchs <strong>logiques</strong>.
+            Chaque VLAN forme son propre <strong>domaine de broadcast</strong> : une trame de diffusion émise dans le VLAN 10 ne sort
+            jamais vers un port du VLAN 20.</p>
+          <ul>
+            <li><strong>Sécurité</strong> : la comptabilité et les RH ne se « voient » pas en couche 2.</li>
+            <li><strong>Performance</strong> : moins de broadcasts par segment.</li>
+            <li><strong>Souplesse</strong> : on change un poste de VLAN par configuration, sans recâbler.</li>
+          </ul>
+          <p class="muted">En général, on associe <strong>un VLAN à un sous-réseau IP</strong> (ici VLAN 10 ↔ 192.168.10.0/24).</p>
+        </article>
+
+        <article class="card">
+          <h3>2 · Port access ou port trunk ?</h3>
+          <table class="cmp">
+            <thead><tr><th></th><th>Access</th><th>Trunk</th></tr></thead>
+            <tbody>
+              <tr><td>VLAN transportés</td><td>Un seul</td><td>Plusieurs (liste autorisée)</td></tr>
+              <tr><td>Trames</td><td>Non taguées</td><td>Taguées 802.1Q (sauf VLAN natif)</td></tr>
+              <tr><td>Relié à</td><td>PC, imprimante, serveur…</td><td>Switch, routeur, hyperviseur…</td></tr>
+              <tr><td>Commande Cisco</td><td><code>switchport mode access</code></td><td><code>switchport mode trunk</code></td></tr>
+            </tbody>
+          </table>
+          <p>Le trunk évite de tirer un câble par VLAN : <strong>un seul lien</strong> transporte tous les VLAN, le tag indiquant
+            à chaque trame à quel VLAN elle appartient.</p>
+        </article>
+
+        <article class="card wide">
+          <h3>3 · Anatomie d'une trame 802.1Q</h3>
+          <p>La norme <strong>IEEE 802.1Q</strong> insère <strong>4 octets</strong> entre la MAC source et l'EtherType. Le FCS est
+            recalculé ; la taille maximale passe de 1518 à 1522 octets.</p>
+          <div class="framebar big" aria-label="Structure d'une trame 802.1Q">
+            <div class="seg s-pre" style="flex:5"><span class="seg-name">Préambule + SFD</span><span class="seg-size">8 o</span></div>
+            <div class="seg s-mac" style="flex:6"><span class="seg-name">MAC dest.</span><span class="seg-size">6 o</span></div>
+            <div class="seg s-mac" style="flex:6"><span class="seg-name">MAC source</span><span class="seg-size">6 o</span></div>
+            <div class="seg s-tag" style="flex:5"><span class="seg-name">Tag 802.1Q</span><span class="seg-size">4 o</span></div>
+            <div class="seg s-type" style="flex:3"><span class="seg-name">EtherType</span><span class="seg-size">2 o</span></div>
+            <div class="seg s-data" style="flex:10"><span class="seg-name">Données</span><span class="seg-size">46–1500 o</span></div>
+            <div class="seg s-fcs" style="flex:4"><span class="seg-name">FCS</span><span class="seg-size">4 o</span></div>
+          </div>
+          <div class="tagdetail big" style="--bc:var(--v10)">
+            <div><span>TPID</span><code>0x8100</code><small>16 bits : « attention, tag 802.1Q »</small></div>
+            <div><span>PCP</span><code>3 bits</code><small>Priorité QoS (802.1p), 0 à 7</small></div>
+            <div><span>DEI</span><code>1 bit</code><small>Trame éligible à l'abandon en cas de congestion</small></div>
+            <div class="vid"><span>VID</span><code>12 bits</code><small>Numéro de VLAN : 1 à 4094 (0 et 4095 réservés)</small></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>4 · Router-on-a-stick</h3>
+          <p>Un switch de niveau 2 ne peut pas faire passer une trame d'un VLAN à un autre : il faut <strong>router</strong>.
+            Plutôt qu'une interface physique par VLAN, le routeur utilise <strong>une interface physique</strong> découpée en
+            <strong>sous-interfaces</strong> :</p>
+          <ul>
+            <li><code>G0/0.10</code> → <code>encapsulation dot1Q 10</code> → passerelle 192.168.10.1</li>
+            <li><code>G0/0.20</code> → <code>encapsulation dot1Q 20</code> → passerelle 192.168.20.1</li>
+          </ul>
+          <p>Le trafic inter-VLAN monte sur le trunk dans un VLAN et redescend dans l'autre : il traverse <strong>deux fois</strong>
+            le même câble.</p>
+        </article>
+
+        <article class="card">
+          <h3>5 · Et en production ?</h3>
+          <table class="cmp">
+            <thead><tr><th></th><th>Router-on-a-stick</th><th>Switch L3 (SVI)</th></tr></thead>
+            <tbody>
+              <tr><td>Coût</td><td>Faible</td><td>Plus élevé</td></tr>
+              <tr><td>Débit inter-VLAN</td><td>Limité par un seul lien</td><td>Vitesse du fond de panier</td></tr>
+              <tr><td>Config</td><td><code>int g0/0.10</code></td><td><code>int vlan 10</code> + <code>ip routing</code></td></tr>
+              <tr><td>Usage</td><td>Petit site, labo, pare-feu</td><td>Cœur de réseau, campus</td></tr>
+            </tbody>
+          </table>
+          <p class="muted">Beaucoup de pare-feu (Fortinet, pfSense, OPNsense…) jouent ce rôle de « routeur sur un bâton » avec des
+            interfaces VLAN sur un lien trunk, ce qui permet de filtrer le trafic inter-VLAN.</p>
+        </article>
+
+        <article class="card">
+          <h3>6 · VLAN natif &amp; bonnes pratiques</h3>
+          <ul>
+            <li>Le <strong>VLAN natif</strong> est le seul transporté <strong>sans tag</strong> sur un trunk (VLAN 1 par défaut).
+              Il doit être identique des deux côtés.</li>
+            <li>Choisir un VLAN natif <strong>inutilisé</strong> (ex. 99) : cela limite l'attaque par <em>double tagging</em> (VLAN hopping).</li>
+            <li>Restreindre le trunk avec <code>switchport trunk allowed vlan</code>.</li>
+            <li>Désactiver DTP : <code>switchport nonegotiate</code>, et forcer <code>mode access</code> sur les ports utilisateurs.</li>
+            <li>Ports inutilisés : <code>shutdown</code> et placement dans un VLAN « parking ».</li>
+            <li>Ne pas utiliser le VLAN 1 pour les données ni l'administration.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- ================= CONFIG ================= -->
+    <section id="config" class="section wrap" aria-labelledby="cfg-title">
+      <div class="section-head">
+        <h2 id="cfg-title">Configurations prêtes à l'emploi</h2>
+        <p>La configuration complète de la topologie, à coller dans Packet Tracer, GNS3, EVE-NG… ou sur du vrai matériel.</p>
+      </div>
+      <div class="card cfg-card">
+        <div id="cfg-tabs" class="cfg-tabs" role="tablist">
+          <button type="button" role="tab" data-cfg="switch">Switch SW1</button>
+          <button type="button" role="tab" data-cfg="router">Routeur R1</button>
+          <button type="button" role="tab" data-cfg="pcs">PC1 / PC2</button>
+          <button type="button" role="tab" data-cfg="linux">Routeur Linux</button>
+          <button type="button" role="tab" data-cfg="verify">Vérification</button>
+          <button class="copy" type="button" data-copy="#cfg-code">Copier</button>
+        </div>
+        <pre id="cfg-code" class="code"></pre>
+      </div>
+    </section>
+
+    <!-- ================= QUIZ ================= -->
+    <section id="quiz" class="section wrap" aria-labelledby="quiz-title">
+      <div class="section-head row">
+        <div>
+          <h2 id="quiz-title">Quiz</h2>
+          <p>Dix questions pour vérifier que tout est clair.</p>
+        </div>
+        <div class="quiz-score">Score <strong id="quiz-score">0 / 10</strong>
+          <button id="quiz-reset" class="btn ghost" type="button">Recommencer</button></div>
+      </div>
+      <ol id="quiz-list" class="quiz"></ol>
+      <p id="quiz-done" class="card quiz-done" hidden></p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <p>Projet pédagogique open source · HTML, CSS et JavaScript, sans dépendance · Licence MIT · © <span id="year"></span></p>
+      <p class="muted">Adresses MAC et IP fictives, choisies pour l'exemple.</p>
+    </div>
+  </footer>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/scenario.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
