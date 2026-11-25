@@ -30,6 +30,7 @@ Site pédagogique **100 % statique** (HTML, CSS, JavaScript, sans dépendance) q
 
 ## Fonctionnalités
 
+- **3 niveaux de lecture** (en haut de la page) : *Débutant* (analogie des salles et des étiquettes, sans jargon), *Intermédiaire* (ARP, MAC, tag 802.1Q, routage), *Expert* (détails IOS, CEF, sécurité, QinQ…). Les explications, l'inspecteur, la théorie et le quiz s'adaptent.
 - **Simulateur animé** : les trames se déplacent sur la topologie, le tag 802.1Q apparaît sur le trunk et disparaît sur les ports access.
 - **5 scénarios guidés** : broadcast ARP et isolation des VLAN, ping inter-VLAN, scénario complet (ARP + ping aller-retour), panne « VLAN non autorisé sur le trunk », panne « PC dans le mauvais VLAN ».
 - **Inspecteur de trame** façon Wireshark : MAC, EtherType, détail du tag (TPID `0x8100`, PCP, DEI, VID en binaire), contenu ARP ou IP/ICMP, TTL.
@@ -37,7 +38,7 @@ Site pédagogique **100 % statique** (HTML, CSS, JavaScript, sans dépendance) q
 - **Labo de dépannage** : choisissez le VLAN des ports, les VLAN autorisés sur le trunk et les sous-interfaces du routeur. La simulation est *calculée* à partir de la configuration (64 combinaisons, une seule fonctionne). Le bouton « Panne aléatoire » génère un défi.
 - **Théorie** : VLAN, access ou trunk, anatomie d'une trame 802.1Q, router-on-a-stick ou switch L3, VLAN natif et bonnes pratiques.
 - **Configurations prêtes à copier** : Cisco IOS (switch et routeur), PC Windows/Linux, routeur Linux équivalent, commandes de vérification.
-- **Quiz** de 10 questions avec explications.
+- **Quiz** adapté au niveau (5, 9 ou 14 questions) avec explications.
 - Thème clair/sombre, responsive, navigation au clavier (`←` `→` `Espace` `Début`), respect de `prefers-reduced-motion`.
 
 ## Lancer en local

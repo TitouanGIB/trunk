@@ -64,8 +64,8 @@
       const anchor = side === 'l' ? 'end' : 'start';
       return `<g class="sublabel ${on ? '' : 'off'}">
         <text x="${x}" y="88" text-anchor="${anchor}" class="lbl-strong" style="fill:${vcol(v)}">G0/0.${v}${on ? '' : ' (absente)'}</text>
-        <text x="${x}" y="105" text-anchor="${anchor}" class="lbl-mono">${on ? NET.vlans[v].gw + '/24' : '—'}</text>
-        <text x="${x}" y="120" text-anchor="${anchor}" class="lbl-tiny">${on ? 'encapsulation dot1Q ' + v : ''}</text>
+        <text x="${x}" y="105" text-anchor="${anchor}" class="lbl-mono det">${on ? NET.vlans[v].gw + '/24' : '—'}</text>
+        <text x="${x}" y="120" text-anchor="${anchor}" class="lbl-tiny det">${on ? 'encapsulation dot1Q ' + v : ''}</text>
       </g>`;
     };
 
@@ -82,9 +82,9 @@
         <path class="pc-stand" d="M${x - 10} ${y + 18} h20 l5 12 h-30 z"/>
         <text x="${x}" y="${y - 2}" text-anchor="middle" class="pc-txt">${d.name}</text>
       </g>
-      <text x="${x}" y="506" text-anchor="middle" class="lbl-strong">${d.name} · ${d.ip}/24</text>
-      <text x="${x}" y="522" text-anchor="middle" class="lbl-mono">passerelle ${d.gw}</text>
-      <text x="${x}" y="537" text-anchor="middle" class="lbl-mono dim">${d.mac}</text>`;
+      <text x="${x}" y="506" text-anchor="middle" class="lbl-strong">${d.name}<tspan class="det"> · ${d.ip}/24</tspan></text>
+      <text x="${x}" y="522" text-anchor="middle" class="lbl-mono det">passerelle ${d.gw}</text>
+      <text x="${x}" y="537" text-anchor="middle" class="lbl-mono dim det">${d.mac}</text>`;
     };
 
     svg.innerHTML = `
@@ -106,12 +106,12 @@
 
         <text x="472" y="182" class="lbl-strong trunk-lbl">TRUNK 802.1Q</text>
         <text x="472" y="199" class="lbl-mono">VLAN autorisés : ${cfg.allowed.length ? [...cfg.allowed].sort().join(', ') : 'aucun'}</text>
-        <text x="472" y="215" class="lbl-tiny">VLAN natif 99 · trames taguées</text>
+        <text x="472" y="215" class="lbl-tiny det">VLAN natif 99 · trames taguées</text>
 
-        <text x="390" y="155" text-anchor="end" class="port">G0/0</text>
-        <text x="440" y="246" text-anchor="end" class="port">Gi0/1</text>
-        <text x="366" y="330" text-anchor="end" class="port">Fa0/1</text>
-        <text x="534" y="330" text-anchor="start" class="port">Fa0/2</text>
+        <text x="390" y="155" text-anchor="end" class="port det">G0/0</text>
+        <text x="440" y="246" text-anchor="end" class="port det">Gi0/1</text>
+        <text x="366" y="330" text-anchor="end" class="port det">Fa0/1</text>
+        <text x="534" y="330" text-anchor="start" class="port det">Fa0/2</text>
         <text x="282" y="362" text-anchor="end" class="lbl-tiny" style="fill:${vcol(cfg.p1)}">ACCESS · VLAN ${cfg.p1}</text>
         <text x="618" y="362" text-anchor="start" class="lbl-tiny" style="fill:${vcol(cfg.p2)}">ACCESS · VLAN ${cfg.p2}</text>
       </g>
@@ -220,7 +220,7 @@
      ------------------------------------------------------------------------ */
   const sim = {
     steps: [], idx: 0, cfg: cloneCfg(DEFAULT_CFG), presetId: 'arp',
-    playing: false, speed: 1, token: 0, timer: null,
+    playing: false, speed: 1, token: 0, timer: null, level: 1,
   };
 
   function computeState(upto) {
@@ -282,6 +282,7 @@
     const f = m.frame;
     const tag = f.tag;
     const isTrunk = (m.from === 'r' || m.to === 'r');
+    if (sim.level === 1) { box.innerHTML = easyInspector(m, f, tag, isTrunk); return; }
     const pcp = 0; const dei = 0;
     const tci = tag ? ((pcp << 13) | (dei << 12) | tag) : 0;
     const vidBin = tag ? tag.toString(2).padStart(12, '0').replace(/(\d{4})(?=\d)/g, '$1 ') : '';
@@ -334,6 +335,23 @@
         <dt>EtherType</dt><dd><code>${f.type}</code> ${f.type === '0x0806' ? 'ARP' : 'IPv4'}</dd></dl>
         ${payload}
       </div>`;
+  }
+
+  function easyInspector(m, f, tag, isTrunk) {
+    const from = { pc1: 'de PC1', pc2: 'de PC2', r: 'du routeur', sw: 'du switch' };
+    const to = { pc1: 'vers PC1', pc2: 'vers PC2', r: 'vers le routeur', sw: 'vers le switch' };
+    const what = f.proto === 'ARP'
+      ? (f.arp.op === 'request' ? `« Qui a ${f.arp.tpa} ? » (message à tout le monde)` : '« C\'est moi ! » (réponse)')
+      : (f.ip.icmp === 'echo-request' ? 'Ping : « Tu es là ? »' : 'Réponse au ping : « Oui, je suis là ! »');
+    return `<div class="easy-insp">
+      <div class="ei-box"><span class="ei-k">Le message</span><strong>${what}</strong></div>
+      <div class="ei-box"><span class="ei-k">Trajet</span><strong>${from[m.from]} ${to[m.to]}</strong></div>
+      <div class="ei-box"><span class="ei-k">Le câble</span><strong>${isTrunk ? 'partagé entre les VLAN (trunk)' : 'celui d\'un seul VLAN (access)'}</strong></div>
+      <div class="ei-box ei-tag ${tag ? 'on' : ''}" style="${tag ? `--bc:var(--v${tag});--bi:var(--v${tag}-ink)` : ''}">
+        <span class="ei-k">L'étiquette</span><strong>${tag ? `VLAN ${tag}` : 'Aucune'}</strong>
+        <small>${tag ? 'Collée par l\'équipement pour indiquer la salle d\'origine sur le câble partagé.' : 'Sur ce câble, pas besoin : il ne sert qu\'à un seul VLAN.'}</small></div>
+    </div>
+    <p class="insp-note">Passez en niveau <strong>Intermédiaire</strong> pour voir le contenu exact de la trame (adresses MAC, tag 802.1Q…).</p>`;
   }
 
   /* ------------------------------------------------------------------------
@@ -415,15 +433,22 @@
     box.className = `card explain ${step.status ? 'st-' + step.status : ''}`;
     $('#ex-phase').textContent = step.phase;
     $('#ex-count').textContent = `Étape ${sim.idx + 1} / ${sim.steps.length}`;
-    $('#ex-title').textContent = step.title;
-    $('#ex-body').innerHTML = step.html || '';
+    const L = sim.level;
+    $('#ex-title').textContent = L === 1 ? (step.easyTitle || step.title) : step.title;
+    let body = L === 1 ? (step.easy || step.html || '') : (step.html || '');
+    if (L === 1 && step.status === 'fail') {
+      const fix = (step.html || '').match(/<div class="fix">[\s\S]*<\/div>/);
+      if (fix) body += fix[0];
+    }
+    if (L === 3 && step.pro) body += `<div class="pro"><span>Niveau expert</span>${step.pro}</div>`;
+    $('#ex-body').innerHTML = body;
     $('#progress-fill').style.width = `${((sim.idx + 1) / sim.steps.length) * 100}%`;
   }
 
   function renderLog() {
     const ol = $('#steplog');
     ol.innerHTML = sim.steps.map((s, k) => `<li class="${k === sim.idx ? 'cur' : ''} ${k < sim.idx ? 'done' : ''} ${s.status ? 'st-' + s.status : ''}">
-      <button type="button" data-step="${k}"><span class="ph">${esc(s.phase)}</span>${esc(s.title)}</button></li>`).join('');
+      <button type="button" data-step="${k}"><span class="ph">${esc(s.phase)}</span>${esc(sim.level === 1 ? (s.easyTitle || s.title) : s.title)}</button></li>`).join('');
     const cur = ol.querySelector('.cur');
     if (cur) {
       const top = cur.offsetTop - ol.clientHeight / 2 + cur.clientHeight / 2;
@@ -607,85 +632,127 @@
      Quiz
      ------------------------------------------------------------------------ */
   const QUIZ = [
-    { q: 'Où le tag 802.1Q est-il inséré dans la trame Ethernet ?',
+    { lvl: 1, q: 'Dans ce montage, à quoi sert le routeur ?',
+      a: ['À relier le site à Internet', 'À faire communiquer deux VLAN différents', 'À remplacer le switch', 'À attribuer les VLAN aux ports'], ok: 1,
+      ex: 'Le switch isole les VLAN. Pour passer de l\'un à l\'autre, il faut un équipement de couche 3 : le routeur.' },
+    { lvl: 1, q: 'Un lien « trunk », c\'est…',
+      a: ['Un câble plus rapide', 'Un lien qui transporte plusieurs VLAN', 'Un câble réservé au VLAN 1', 'Un lien vers Internet'], ok: 1,
+      ex: 'Un trunk transporte plusieurs VLAN sur un seul câble ; chaque trame y porte l\'étiquette de son VLAN.' },
+    { lvl: 2, q: 'Où le tag 802.1Q est-il inséré dans la trame Ethernet ?',
       a: ['Avant le préambule', 'Entre la MAC source et l\'EtherType', 'Juste avant le FCS', 'Dans l\'en-tête IP'], ok: 1,
       ex: 'Les 4 octets du tag se placent après la MAC source, à l\'endroit où l\'on attendrait l\'EtherType. Le TPID 0x8100 annonce leur présence.' },
-    { q: 'Quelle valeur de TPID identifie une trame taguée 802.1Q ?',
+    { lvl: 3, q: 'Quelle valeur de TPID identifie une trame taguée 802.1Q ?',
       a: ['0x0800', '0x0806', '0x8100', '0x86DD'], ok: 2,
       ex: '0x0800 = IPv4, 0x0806 = ARP, 0x86DD = IPv6. 0x8100 signale un tag 802.1Q.' },
-    { q: 'Combien d\'octets le tag 802.1Q ajoute-t-il à la trame ?',
+    { lvl: 2, q: 'Combien d\'octets le tag 802.1Q ajoute-t-il à la trame ?',
       a: ['2', '4', '8', '12'], ok: 1,
       ex: 'TPID (2 octets) + TCI (2 octets : PCP 3 bits, DEI 1 bit, VID 12 bits) = 4 octets.' },
-    { q: 'PC1 pingue PC2. Quelle adresse MAC de destination met-il dans sa trame ?',
+    { lvl: 2, q: 'PC1 pingue PC2. Quelle adresse MAC de destination met-il dans sa trame ?',
       a: ['Celle de PC2', 'ff:ff:ff:ff:ff:ff', 'Celle de sa passerelle (le routeur)', 'Celle du switch'], ok: 2,
       ex: 'PC2 est sur un autre réseau IP : PC1 adresse la trame à sa passerelle. L\'IP de destination reste celle de PC2.' },
-    { q: 'Pourquoi le broadcast ARP de PC1 n\'atteint-il jamais PC2 ?',
+    { lvl: 1, q: 'Pourquoi le broadcast ARP de PC1 n\'atteint-il jamais PC2 ?',
       a: ['Le switch bloque tous les broadcasts', 'PC2 est dans un autre VLAN, donc un autre domaine de broadcast', 'Le routeur filtre les broadcasts', 'ARP ne fonctionne qu\'en unicast'], ok: 1,
       ex: 'Un VLAN = un domaine de broadcast. Le switch ne diffuse que sur les ports du VLAN d\'origine, trunks compris.' },
-    { q: 'Sur le port access Fa0/2, la trame qui arrive à PC2 est…',
+    { lvl: 1, q: 'Sur le port access Fa0/2, la trame qui arrive à PC2 est…',
       a: ['Taguée VID 20', 'Taguée VID 1', 'Non taguée', 'Doublement taguée'], ok: 2,
       ex: 'Le switch retire le tag avant d\'envoyer sur un port access. Les PC ne voient jamais de tag.' },
-    { q: 'Pour un ping aller (PC1 → PC2), combien de fois la trame traverse-t-elle le trunk SW1–R1 ?',
+    { lvl: 1, q: 'Pour un ping aller (PC1 → PC2), combien de fois la trame traverse-t-elle le trunk SW1–R1 ?',
       a: ['0', '1', '2', '4'], ok: 2,
       ex: 'Une montée taguée VID 10, puis une descente taguée VID 20 : c\'est le principe du « router-on-a-stick ». L\'aller-retour en fait 4.' },
-    { q: 'Comment circulent les trames du VLAN natif sur un trunk 802.1Q ?',
+    { lvl: 3, q: 'Comment circulent les trames du VLAN natif sur un trunk 802.1Q ?',
       a: ['Taguées avec le VID natif', 'Non taguées', 'Chiffrées', 'Elles sont interdites'], ok: 1,
       ex: 'Le VLAN natif est le seul transporté sans tag. Bonne pratique : choisir un VLAN natif inutilisé (ex. 99) pour limiter le VLAN hopping.' },
-    { q: 'Quelle commande associe la sous-interface G0/0.20 au VLAN 20 ?',
+    { lvl: 2, q: 'Quelle commande associe la sous-interface G0/0.20 au VLAN 20 ?',
       a: ['switchport access vlan 20', 'encapsulation dot1Q 20', 'vlan 20', 'ip vlan 20'], ok: 1,
       ex: 'Sur le routeur, « encapsulation dot1Q 20 » indique que la sous-interface traite les trames taguées VID 20.' },
-    { q: 'Avec un VID sur 12 bits, combien de VLAN sont utilisables ?',
+    { lvl: 3, q: 'Avec un VID sur 12 bits, combien de VLAN sont utilisables ?',
       a: ['256', '1024', '4094', '4096'], ok: 2,
       ex: '2¹² = 4096 valeurs, mais 0 et 4095 sont réservés : 1 à 4094 sont utilisables.' },
+    { lvl: 3, q: 'En QinQ (IEEE 802.1ad), quel TPID porte généralement le tag externe ?',
+      a: ['0x8100', '0x88A8', '0x9100', '0x0800'], ok: 1,
+      ex: '802.1ad utilise 0x88A8 pour le tag de service (S-tag) ; le tag client (C-tag) garde 0x8100. 0x9100 est une ancienne valeur propriétaire.' },
+    { lvl: 3, q: 'Premier ping depuis un routeur Cisco vers un hôte jamais contacté : pourquoi « .!!!! » ?',
+      a: ['Le premier paquet est jeté pendant la résolution ARP', 'Le switch apprend la MAC', 'Le TTL est trop bas', 'Le trunk négocie avec DTP'], ok: 0,
+      ex: 'IOS ne met pas le paquet en file d\'attente pendant la requête ARP : il le jette, d\'où le premier point.' },
   ];
 
+  let quizReset = null;
   function initQuiz() {
+    $('#quiz-reset').addEventListener('click', () => renderQuiz());
+    $('#quiz-list').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-a]');
+      if (!b || !quizReset) return;
+      quizReset.answer(b);
+    });
+    renderQuiz();
+  }
+
+  function renderQuiz() {
     const root = $('#quiz-list');
-    root.innerHTML = QUIZ.map((item, i) => `<li class="q" data-q="${i}">
+    const items = QUIZ.filter((q) => q.lvl <= sim.level);
+    const total = items.length;
+    $('#quiz-intro').textContent = `${total} questions adaptées au niveau ${['', 'Débutant', 'Intermédiaire', 'Expert'][sim.level]}.`;
+    root.innerHTML = items.map((item, i) => `<li class="q" data-q="${i}">
       <p class="q-title"><span>${i + 1}</span>${esc(item.q)}</p>
       <div class="q-opts">${item.a.map((opt, j) => `<button type="button" data-a="${j}">${esc(opt)}</button>`).join('')}</div>
       <p class="q-ex" hidden></p></li>`).join('');
     const answered = new Map();
     const score = () => {
       const good = [...answered.values()].filter(Boolean).length;
-      $('#quiz-score').textContent = `${good} / ${QUIZ.length}`;
-      $('#quiz-done').hidden = answered.size !== QUIZ.length;
-      if (answered.size === QUIZ.length) {
-        $('#quiz-done').textContent = good === QUIZ.length ? 'Sans faute ! Vous maîtrisez les VLAN et le trunk 802.1Q.'
-          : good >= 7 ? 'Très bien ! Relisez les explications des questions manquées.'
+      $('#quiz-score').textContent = `${good} / ${total}`;
+      const done = answered.size === total;
+      $('#quiz-done').hidden = !done;
+      if (done) {
+        $('#quiz-done').textContent = good === total ? 'Sans faute ! Essayez le niveau supérieur.'
+          : good >= Math.ceil(total * 0.7) ? 'Très bien ! Relisez les explications des questions manquées.'
             : 'Rejouez le scénario complet dans le simulateur, puis retentez le quiz.';
       }
     };
-    root.addEventListener('click', (e) => {
-      const b = e.target.closest('button[data-a]');
-      if (!b) return;
-      const li = b.closest('.q');
-      const qi = parseInt(li.dataset.q, 10);
-      if (answered.has(qi)) return;
-      const item = QUIZ[qi];
-      const pick = parseInt(b.dataset.a, 10);
-      answered.set(qi, pick === item.ok);
-      $$('button', li).forEach((x, j) => {
-        x.disabled = true;
-        if (j === item.ok) x.classList.add('right');
-        else if (j === pick) x.classList.add('wrong');
-      });
-      const ex = $('.q-ex', li);
-      ex.hidden = false;
-      ex.innerHTML = `<strong>${pick === item.ok ? 'Exact.' : 'Pas tout à fait.'}</strong> ${esc(item.ex)}`;
-      li.classList.add(pick === item.ok ? 'is-right' : 'is-wrong');
-      score();
-    });
-    $('#quiz-reset').addEventListener('click', () => { answered.clear(); initQuizReset(); });
-    function initQuizReset() {
-      $$('.q', root).forEach((li) => {
-        li.classList.remove('is-right', 'is-wrong');
-        $$('button', li).forEach((x) => { x.disabled = false; x.classList.remove('right', 'wrong'); });
-        $('.q-ex', li).hidden = true;
-      });
-      score();
-    }
+    quizReset = {
+      answer(b) {
+        const li = b.closest('.q');
+        const qi = parseInt(li.dataset.q, 10);
+        if (answered.has(qi)) return;
+        const item = items[qi];
+        const pick = parseInt(b.dataset.a, 10);
+        answered.set(qi, pick === item.ok);
+        $$('button', li).forEach((x, j) => {
+          x.disabled = true;
+          if (j === item.ok) x.classList.add('right');
+          else if (j === pick) x.classList.add('wrong');
+        });
+        const ex = $('.q-ex', li);
+        ex.hidden = false;
+        ex.innerHTML = `<strong>${pick === item.ok ? 'Exact.' : 'Pas tout à fait.'}</strong> ${esc(item.ex)}`;
+        li.classList.add(pick === item.ok ? 'is-right' : 'is-wrong');
+        score();
+      },
+    };
     score();
+  }
+
+  /* ------------------------------------------------------------------------
+     Niveau de lecture : 1 Débutant · 2 Intermédiaire · 3 Expert
+     ------------------------------------------------------------------------ */
+  function setLevel(l, { save = true } = {}) {
+    sim.level = l;
+    document.documentElement.dataset.level = String(l);
+    $$('[data-level-btn]').forEach((b) => b.setAttribute('aria-pressed', String(parseInt(b.dataset.levelBtn, 10) === l)));
+    if (save) { try { localStorage.setItem('vlan-level', String(l)); } catch { /* ignore */ } }
+    if (sim.steps.length) goTo(sim.idx, { animate: false });
+    renderQuiz();
+    const cur = $('#cfg-tabs button[aria-selected="true"]');
+    if (cur && cur.offsetParent === null) $('#cfg-tabs button[data-cfg="switch"]').click();
+  }
+  function initLevel() {
+    let saved = 1;
+    try { saved = parseInt(localStorage.getItem('vlan-level') || '1', 10) || 1; } catch { /* ignore */ }
+    sim.level = saved;
+    document.documentElement.dataset.level = String(saved);
+    $$('[data-level-btn]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(parseInt(b.dataset.levelBtn, 10) === saved));
+      b.addEventListener('click', () => setLevel(parseInt(b.dataset.levelBtn, 10)));
+    });
   }
 
   /* ------------------------------------------------------------------------
@@ -719,6 +786,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     initTheme();
+    initLevel();
     initNav();
     initSimulator();
     initLab();
@@ -728,5 +796,5 @@
   });
 
   /* Exposé pour les tests / la console */
-  window.VLANSim = { sim, goTo, loadScenario, buildScenario, PRESETS };
+  window.VLANSim = { sim, goTo, loadScenario, buildScenario, PRESETS, setLevel };
 })();

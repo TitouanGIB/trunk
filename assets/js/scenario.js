@@ -35,7 +35,7 @@ const vl = (v) => `<span class="vchip v${v}">VLAN ${v}</span>`;
  * @param {object} opts { arp:bool, arpOnly:bool, reply:bool }
  * @returns {Array} étapes
  */
-function buildScenario(cfg, opts) {
+function buildScenarioCore(cfg, opts) {
   const { pc1, pc2, r } = NET;
   const v1 = cfg.p1;
   const v2 = cfg.p2;
@@ -377,6 +377,150 @@ function buildScenario(cfg, opts) {
       <li>Les IP sont restées identiques de bout en bout ; les MAC et le TTL ont changé au passage du routeur.</li></ul>`,
   });
   return S;
+}
+
+/* ==========================================================================
+   Trois niveaux de lecture
+   - easy : Débutant (analogie, zéro jargon)
+   - html : Intermédiaire (texte de référence)
+   - pro  : Expert (complément technique ajouté au texte intermédiaire)
+   ========================================================================== */
+function buildScenario(cfg, opts) {
+  const S = buildScenarioCore(cfg, opts);
+  annotateLevels(S, cfg, opts);
+  return S;
+}
+
+function annotateLevels(S, cfg, opts) {
+  const v1 = cfg.p1;
+  const v2 = cfg.p2;
+  const trunkOk = cfg.allowed.includes(v1);
+  const et = (v) => `<span class="vchip v${v}">étiquette VLAN ${v}</span>`;
+  const salle = (v) => `la salle <strong>${v}</strong>`;
+
+  const RULES = [
+    ['PC1 veut joindre PC2', () => `<p>PC1 veut envoyer un message (un <em>ping</em>) à PC2.</p>
+      <p>Imagine le switch comme un bâtiment avec <strong>deux salles fermées</strong> : ${salle(10)} (VLAN 10) et ${salle(20)} (VLAN 20).
+      PC1 et PC2 ne sont pas dans la même salle : ils ne peuvent pas se parler directement.</p>
+      <p>PC1 doit donc passer par le <strong>routeur</strong>, la seule « porte » entre les deux salles.</p>
+      ${opts.arp ? '' : '<p class="muted">Dans ce scénario, PC1 connaît déjà l\'adresse du routeur : on va droit au but.</p>'}`,
+     () => `<p><strong>Décision locale :</strong> (IP destination ET masque) ≠ (IP source ET masque) → envoi au next-hop = passerelle par défaut.
+      Pour le vérifier : ${c('route print')} (Windows) ou ${c('ip route get 192.168.20.10')} (Linux).</p>`],
+
+    ['PC1 diffuse une requête ARP', () => `<p>PC1 ne connaît pas encore l'adresse du routeur. Il crie dans sa salle :
+      <strong>« Qui est le routeur ? »</strong></p>
+      <p>Son message part <strong>sans étiquette</strong> : un PC ne sait même pas que les VLAN existent.</p>`,
+     () => `<p>Trame de 60 octets minimum (avec bourrage), EtherType ${c('0x0806')}, opcode 1, adresse cible à zéro.
+      L'entrée MAC est créée avec un vieillissement de 300 s par défaut (${c('mac address-table aging-time')}).</p>`],
+
+    ['Le switch diffuse', () => `<p>Le switch répète le message <strong>uniquement dans ${salle(v1)}</strong>.</p>
+      ${v2 === v1 ? '<p>PC2 est dans la même salle : il l\'entend aussi.</p>' : '<p>PC2 est dans l\'autre salle : <strong>il n\'entend rien</strong>. C\'est tout l\'intérêt des VLAN !</p>'}
+      ${trunkOk ? `<p>Pour envoyer le message au routeur par le <strong>câble partagé</strong> (le trunk), le switch colle dessus une ${et(v1)}.</p>`
+        : '<p>Mais le câble vers le routeur n\'accepte pas cette salle : le message ne peut pas y passer.</p>'}`,
+     () => `<p>Inondation = ports membres du VLAN en état STP <em>forwarding</em>, sauf le port d'entrée. Sur le trunk : insertion du tag et
+      recalcul du FCS. À vérifier avec ${c('show interfaces trunk')} et ${c('show spanning-tree vlan ' + v1)}.</p>`],
+
+    ['PC2 ignore la requête', () => `<p>PC2 reçoit le message, mais ce n'est pas lui qu'on cherche : il l'ignore.</p>`, null],
+
+    ['Le routeur reçoit sur', () => `<p>Le routeur lit l'${et(v1)} et sait que le message vient de ${salle(v1)}.</p>
+      <p>C'est bien lui qu'on cherche : il va répondre.</p>`,
+     () => `<p>Le VID sélectionne la sous-interface. L'entrée ARP est créée (expiration de 4 h par défaut sur IOS).
+      Voir ${c('show arp')} et ${c('show interfaces g0/0.' + v1)}.</p>`],
+
+    ['Réponse ARP taguée sur le trunk', () => `<p>Le routeur répond <strong>« C'est moi ! »</strong>. Sur le câble partagé, le message garde son ${et(v1)}.</p>`,
+     () => `<p>Toutes les sous-interfaces partagent la MAC de l'interface physique. Le switch indexe sa table par couple (VLAN, MAC) :
+      la même MAC peut donc exister dans plusieurs VLAN.</p>`],
+
+    ['Le switch retire le tag et livre à PC1', () => `<p>Le switch <strong>enlève l'étiquette</strong> et donne la réponse à PC1.</p>
+      <p>PC1 connaît maintenant l'adresse du routeur.</p>`,
+     () => `<p>Recherche (VLAN ${v1}, MAC PC1) → ${c('Fa0/1')}, port access → retrait du tag. Côté PC : ${c('arp -a')}.</p>`],
+
+    ['Bilan : le broadcast', () => `<p><strong>À retenir :</strong></p><ul>
+      <li>Un message « à tout le monde » <strong>reste dans sa salle</strong> (son VLAN). PC2 ne l'a jamais reçu.</li>
+      <li>L'étiquette n'existe que sur le <strong>câble partagé</strong> (le trunk). Les PC ne la voient jamais.</li></ul>`, null],
+
+    ['PC1 envoie le ping', () => `<p>PC1 envoie son ping. Sur l'enveloppe, il est écrit <strong>« pour PC2 »</strong>,
+      mais PC1 la confie <strong>au routeur</strong>, comme on confie une lettre au facteur.</p>`,
+     () => `<p>IP destination = PC2, MAC destination = passerelle. ICMP type 8 avec identifiant et numéro de séquence ;
+      Windows envoie 32 octets de données, Linux 56.</p>`],
+
+    ['Montée sur le trunk avec', () => `<p>Le switch colle une ${et(10)} et envoie le ping au routeur par le câble partagé.</p>`,
+     () => `<p>Unicast connu : pas d'inondation. Taille maximale 1522 octets FCS compris : certains équipements anciens
+      exigent un MTU adapté (<em>baby giants</em>).</p>`],
+
+    ['Le routeur route du VLAN 10 vers le VLAN 20', () => `<p>Le routeur enlève l'${et(10)}, voit que le ping est pour ${salle(20)},
+      et prépare une nouvelle ${et(20)}.</p><p>C'est lui qui fait le <strong>pont entre les deux salles</strong>.</p>`,
+     () => `<p>Plus long préfixe correspondant, puis commutation CEF : réécriture L2 depuis la table d'adjacence, TTL − 1,
+      recalcul de la somme de contrôle IP. Voir ${c('show ip cef 192.168.20.10')}.</p>`],
+
+    ['Le routeur cherche la MAC de PC2', () => `<p>Le routeur ne connaît pas encore PC2. Il crie dans ${salle(20)} :
+      <strong>« Qui est PC2 ? »</strong>, avec une ${et(20)}, sur le même câble.</p>`,
+     () => `<p>En réalité, IOS <strong>jette</strong> souvent le paquet en attente pendant la résolution ARP : c'est le « . » du célèbre
+      ${c('.!!!!')} lors du premier ping depuis un routeur Cisco.</p>`],
+
+    ['Diffusion dans le VLAN 20', () => (v2 === 20
+      ? `<p>Le switch enlève l'étiquette et répète le message dans ${salle(20)} : PC2 l'entend. PC1, dans ${salle(10)}, n'entend rien.</p>`
+      : `<p>Le switch répète le message dans ${salle(20)}… mais <strong>personne n'y est</strong> : PC2 est dans l'autre salle !</p>`),
+     () => '<p>La MAC du routeur est apprise dans deux VLAN sur Gi0/1 : c\'est normal, la table MAC est indexée par VLAN.</p>'],
+
+    ['PC2 répond au routeur', () => '<p>PC2 répond <strong>« C\'est moi ! »</strong> au routeur, sans étiquette.</p>', null],
+    ['La réponse remonte', () => `<p>Le switch colle une ${et(20)} et remonte la réponse. Le routeur connaît maintenant PC2.</p>`, null],
+
+    ['Le ping redescend le trunk', () => `<p>Le routeur renvoie le ping vers le switch avec une ${et(20)}.
+      <strong>Même câble, dans l'autre sens !</strong></p>`,
+     () => `<p>MAC source et destination réécrites, IP inchangées, TTL 63. Le trafic inter-VLAN consomme deux fois la bande passante
+      du trunk : c'est la limite du router-on-a-stick.</p>`],
+
+    ['Le tag est retiré, PC2 reçoit le ping', () => '<p>Le switch enlève l\'étiquette et donne le ping à PC2. <strong>Arrivé !</strong></p>', null],
+    ['PC2 répond via sa passerelle', () => '<p>PC2 répond. Même chemin, en sens inverse : la réponse passe d\'abord par le routeur.</p>',
+     () => '<p>ICMP type 0, même identifiant et même numéro de séquence que la requête : c\'est ainsi que PC1 associe la réponse à sa question.</p>'],
+    ['Montée sur le trunk (VID 20)', () => `<p>Une ${et(20)} est collée, et la réponse monte vers le routeur.</p>`, null],
+    ['Routage retour', () => `<p>Le routeur change l'étiquette : ${et(20)} → ${et(10)}.</p>`, null],
+    ['Descente sur le trunk (VID 10)', () => `<p>La réponse redescend vers le switch avec une ${et(10)}.</p>`, null],
+    ['PC1 reçoit la réponse', () => '<p>Le switch enlève l\'étiquette : PC1 reçoit la réponse. <strong>Le ping a réussi !</strong></p>',
+     () => '<p>TTL initial selon l\'OS : 64 (Linux, macOS), 128 (Windows), 255 (Cisco). Un TTL reçu de 63 = un saut de routage.</p>'],
+
+    ['Ping réussi : bilan', () => `<p><strong>À retenir :</strong></p><ol>
+      <li><strong>Deux VLAN = deux salles séparées</strong>, même sur un seul switch.</li>
+      <li>Sur le <strong>câble partagé (trunk)</strong>, chaque message porte une étiquette avec le numéro de son VLAN.</li>
+      <li>Pour passer d'une salle à l'autre, il faut un <strong>routeur</strong>.</li></ol>`,
+     () => `<p>En production, on remplace souvent ce montage par un switch de niveau 3 (SVI + ${c('ip routing')}) ou par un pare-feu,
+      qui filtre aussi le trafic entre VLAN.</p>`],
+
+    /* --- Échecs --- */
+    ['Échec : la requête ARP ne quitte jamais le switch', () => `<p>Le câble vers le routeur <strong>refuse ${salle(v1)}</strong>.
+      Le message de PC1 reste bloqué dans le switch : le ping échoue.</p><p><strong>Solution :</strong> autoriser le VLAN ${v1} sur le trunk.</p>`, null],
+    ['Échec : aucune sous-interface', () => `<p>Le routeur reçoit le message, mais il n'a <strong>pas de porte</strong> pour ${salle(v1)} : il le jette.</p>
+      <p><strong>Solution :</strong> créer la sous-interface du VLAN ${v1} sur le routeur.</p>`, null],
+    ['Échec : incohérence VLAN', () => `<p>PC1 est branché <strong>dans la mauvaise salle</strong> : son adresse est celle de la salle 10, mais son port
+      est dans ${salle(v1)}. Le routeur ne lui répond pas.</p><p><strong>Solution :</strong> remettre le port de PC1 dans le VLAN 10.</p>`, null],
+    ['Échec : le routeur ne connaît pas', () => `<p>Le routeur ne connaît pas ${salle(20)} : il ne sait pas où envoyer le ping.</p>
+      <p><strong>Solution :</strong> créer la sous-interface du VLAN 20.</p>`, null],
+    ['Échec : le switch rejette', () => `<p>Le routeur renvoie le message avec une ${et(20)}, mais le câble partagé <strong>refuse le VLAN 20</strong>. Bloqué !</p>
+      <p><strong>Solution :</strong> autoriser le VLAN 20 sur le trunk.</p>`, null],
+    ['Échec : PC2 est dans le mauvais VLAN', () => `<p>PC2 est branché <strong>dans la mauvaise salle</strong> : le routeur l'appelle dans ${salle(20)},
+      mais PC2 est dans ${salle(v2)} et n'entend rien.</p><p><strong>Solution :</strong> mettre le port de PC2 dans le VLAN 20.</p>`, null],
+  ];
+
+  for (const st of S) {
+    const rule = RULES.find(([prefix]) => st.title.startsWith(prefix));
+    if (!rule) continue;
+    st.easy = rule[1]();
+    if (rule[2]) st.pro = rule[2]();
+  }
+  /* Titres simplifiés pour le niveau Débutant */
+  const EASY_TITLES = {
+    'PC1 diffuse une requête ARP': 'PC1 cherche le routeur',
+    'Le switch diffuse… dans le VLAN uniquement': 'Le message reste dans sa salle',
+    'Réponse ARP taguée sur le trunk': 'Le routeur répond',
+    'Le switch retire le tag et livre à PC1': 'Le switch enlève l\'étiquette',
+    'PC1 envoie le ping… à la MAC du routeur': 'PC1 confie son ping au routeur',
+    'Le routeur route du VLAN 10 vers le VLAN 20': 'Le routeur change d\'étiquette',
+    'Le routeur cherche la MAC de PC2': 'Le routeur cherche PC2',
+    'Le ping redescend le trunk, tagué 20': 'Le ping redescend avec l\'étiquette 20',
+    'Le tag est retiré, PC2 reçoit le ping': 'PC2 reçoit le ping',
+  };
+  for (const st of S) st.easyTitle = EASY_TITLES[st.title] || st.title;
 }
 
 /* ---------- Scénarios prédéfinis ---------- */

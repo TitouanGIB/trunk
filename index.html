@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="dark">
+<html lang="fr" data-theme="dark" data-level="1">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -28,6 +28,11 @@
         <a href="#config">Config</a>
         <a href="#quiz">Quiz</a>
       </nav>
+      <div class="levels" role="group" aria-label="Niveau de lecture">
+        <button type="button" data-level-btn="1" aria-pressed="true" title="Débutant : des images simples, sans jargon"><i class="dot l1"></i><span>Débutant</span></button>
+        <button type="button" data-level-btn="2" aria-pressed="false" title="Intermédiaire : le fonctionnement réel, avec les bons termes"><i class="dot l2"></i><span>Intermédiaire</span></button>
+        <button type="button" data-level-btn="3" aria-pressed="false" title="Expert : détails techniques en plus"><i class="dot l3"></i><span>Expert</span></button>
+      </div>
       <button id="theme-toggle" class="icon-btn" type="button" aria-label="Basculer thème clair/sombre" title="Thème clair / sombre">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path class="sun" d="M12 4V2m0 20v-2m8-8h2M2 12h2m13.66-5.66 1.41-1.41M4.93 19.07l1.41-1.41m0-11.32L4.93 4.93m14.14 14.14-1.41-1.41M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z"/><path class="moon" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
       </button>
@@ -39,9 +44,22 @@
     <section class="hero wrap">
       <p class="eyebrow">Réseau · Couche 2 / Couche 3</p>
       <h1>VLAN &amp; trunk 802.1Q,<br><span class="grad">trame par trame</span></h1>
-      <p class="lead">Deux PC sur le <strong>même switch</strong>, mais dans deux VLAN différents. Un routeur derrière, relié par un
+      <p class="lead only-1">Deux ordinateurs sont branchés sur le <strong>même boîtier réseau</strong> (un switch), mais rangés dans
+        <strong>deux « salles » séparées</strong> (des VLAN). Comment se parlent-ils quand même ? Suivez leurs messages pas à pas.</p>
+      <p class="lead min-2">Deux PC sur le <strong>même switch</strong>, mais dans deux VLAN différents. Un routeur derrière, relié par un
         <strong>unique câble trunk</strong>. Suivez chaque trame : quand le tag 802.1Q apparaît, quand il disparaît, et
         comment le routeur fait passer le trafic d'un VLAN à l'autre.</p>
+      <div class="level-pick" role="group" aria-label="Choisir son niveau">
+        <p class="lp-title">Choisissez votre niveau, vous pourrez en changer à tout moment :</p>
+        <div class="lp-grid">
+          <button type="button" data-level-btn="1" aria-pressed="true"><i class="dot l1"></i><strong>Débutant</strong>
+            <small>Je découvre. Des images simples, aucun jargon.</small></button>
+          <button type="button" data-level-btn="2" aria-pressed="false"><i class="dot l2"></i><strong>Intermédiaire</strong>
+            <small>Je révise. Tags 802.1Q, ARP, MAC, routage.</small></button>
+          <button type="button" data-level-btn="3" aria-pressed="false"><i class="dot l3"></i><strong>Expert</strong>
+            <small>Je veux tout. Détails de trame, IOS, cas réels.</small></button>
+        </div>
+      </div>
       <div class="hero-cta">
         <a class="btn primary" href="#simulateur">Lancer l'animation</a>
         <a class="btn" href="#theorie">Lire la théorie</a>
@@ -57,7 +75,9 @@
     <section id="simulateur" class="section wrap" aria-labelledby="sim-title">
       <div class="section-head">
         <h2 id="sim-title">Simulateur</h2>
-        <p>Choisissez un scénario, puis avancez étape par étape (<kbd>←</kbd> <kbd>→</kbd>) ou lancez la lecture (<kbd>Espace</kbd>).</p>
+        <p class="only-1">Choisissez une histoire, puis cliquez sur <strong>Suivant</strong> pour voir le message avancer.
+          La couleur indique la salle (le VLAN) : <span class="vchip v10">bleu = VLAN 10</span> <span class="vchip v20">orange = VLAN 20</span>.</p>
+        <p class="min-2">Choisissez un scénario, puis avancez étape par étape (<kbd>←</kbd> <kbd>→</kbd>) ou lancez la lecture (<kbd>Espace</kbd>).</p>
       </div>
 
       <div id="scenarios" class="scenarios" role="tablist" aria-label="Scénarios"></div>
@@ -108,7 +128,7 @@
         <div id="inspector"></div>
       </div>
 
-      <div class="tables">
+      <div class="tables min-2">
         <div class="card tbl-card">
           <h3 class="card-title">SW1 · table MAC</h3>
           <table id="tbl-mac"><thead><tr><th>VLAN</th><th>MAC</th><th>Port</th><th>Type</th></tr></thead><tbody></tbody></table>
@@ -177,6 +197,16 @@
       </div>
 
       <div class="theory">
+        <article class="card wide only-1 analogy">
+          <h3>L'idée en 30 secondes</h3>
+          <div class="analogy-grid">
+            <div><span class="an-ico">🏢</span><strong>Le switch = un bâtiment</strong><p>Tous les ordinateurs y sont branchés.</p></div>
+            <div><span class="an-ico">🚪</span><strong>Un VLAN = une salle fermée</strong><p>On ne parle qu'aux gens de sa salle. Bleu = salle 10, orange = salle 20.</p></div>
+            <div><span class="an-ico">🏷️</span><strong>Le trunk = un couloir partagé</strong><p>Les messages de toutes les salles y passent, chacun avec une étiquette de sa salle.</p></div>
+            <div><span class="an-ico">🔀</span><strong>Le routeur = la porte entre les salles</strong><p>C'est le seul qui peut faire passer un message d'une salle à l'autre.</p></div>
+          </div>
+        </article>
+
         <article class="card">
           <h3>1 · Qu'est-ce qu'un VLAN ?</h3>
           <p>Un <strong>VLAN</strong> (<em>Virtual LAN</em>) découpe un switch physique en plusieurs switchs <strong>logiques</strong>.
@@ -205,7 +235,7 @@
             à chaque trame à quel VLAN elle appartient.</p>
         </article>
 
-        <article class="card wide">
+        <article class="card wide min-2">
           <h3>3 · Anatomie d'une trame 802.1Q</h3>
           <p>La norme <strong>IEEE 802.1Q</strong> insère <strong>4 octets</strong> entre la MAC source et l'EtherType. Le FCS est
             recalculé ; la taille maximale passe de 1518 à 1522 octets.</p>
@@ -239,7 +269,7 @@
             le même câble.</p>
         </article>
 
-        <article class="card">
+        <article class="card min-2">
           <h3>5 · Et en production ?</h3>
           <table class="cmp">
             <thead><tr><th></th><th>Router-on-a-stick</th><th>Switch L3 (SVI)</th></tr></thead>
@@ -254,7 +284,7 @@
             interfaces VLAN sur un lien trunk, ce qui permet de filtrer le trafic inter-VLAN.</p>
         </article>
 
-        <article class="card">
+        <article class="card min-2">
           <h3>6 · VLAN natif &amp; bonnes pratiques</h3>
           <ul>
             <li>Le <strong>VLAN natif</strong> est le seul transporté <strong>sans tag</strong> sur un trunk (VLAN 1 par défaut).
@@ -265,6 +295,25 @@
             <li>Ports inutilisés : <code>shutdown</code> et placement dans un VLAN « parking ».</li>
             <li>Ne pas utiliser le VLAN 1 pour les données ni l'administration.</li>
           </ul>
+        </article>
+
+        <article class="card wide min-3 expert-card">
+          <h3>7 · Pour aller plus loin <span class="lvl-tag">Expert</span></h3>
+          <div class="expert-grid">
+            <div><h4>VLAN hopping par double tag</h4><p>L'attaquant, placé dans le VLAN natif, envoie une trame avec deux tags. Le premier switch retire le tag externe
+              (natif, donc envoyé sans tag sur le trunk) ; le second lit le tag interne et livre la trame dans le VLAN cible. Parade : VLAN natif inutilisé,
+              ou <code>vlan dot1q tag native</code>.</p></div>
+            <div><h4>Usurpation de switch (DTP)</h4><p>Un port en <code>dynamic auto/desirable</code> peut négocier un trunk avec un poste malveillant et lui donner accès à tous les VLAN.
+              Parade : <code>switchport mode access</code> + <code>switchport nonegotiate</code>.</p></div>
+            <div><h4>QinQ (802.1ad)</h4><p>Un opérateur empile un tag de service (TPID <code>0x88A8</code>) devant le tag client (<code>0x8100</code>) pour transporter les VLAN
+              de ses clients. Il faut un MTU ≥ 1526 octets sur le cœur.</p></div>
+            <div><h4>Trunk vers un hyperviseur</h4><p>Proxmox (bridge <em>VLAN aware</em>), ESXi (port group avec VLAN ID ou 4095) ou Hyper-V : un seul lien trunk, et chaque VM
+              reçoit son VLAN. Le tag est posé par le vSwitch, comme ici par le routeur.</p></div>
+            <div><h4>VLAN privés (PVLAN)</h4><p>Ils isolent des hôtes <em>dans</em> un même VLAN et sous-réseau (ports isolated/community/promiscuous) : c'est le cas
+              typique des DMZ et des hébergeurs.</p></div>
+            <div><h4>Dépannage méthodique</h4><p>Dans l'ordre : <code>show vlan brief</code> → <code>show interfaces trunk</code> (liste autorisée, VLAN natif) →
+              <code>show mac address-table vlan X</code> → <code>show ip interface brief</code> → <code>show arp</code> → capture sur le trunk.</p></div>
+          </div>
         </article>
       </div>
     </section>
@@ -280,8 +329,8 @@
           <button type="button" role="tab" data-cfg="switch">Switch SW1</button>
           <button type="button" role="tab" data-cfg="router">Routeur R1</button>
           <button type="button" role="tab" data-cfg="pcs">PC1 / PC2</button>
-          <button type="button" role="tab" data-cfg="linux">Routeur Linux</button>
-          <button type="button" role="tab" data-cfg="verify">Vérification</button>
+          <button type="button" role="tab" data-cfg="linux" class="min-2">Routeur Linux</button>
+          <button type="button" role="tab" data-cfg="verify" class="min-2">Vérification</button>
           <button class="copy" type="button" data-copy="#cfg-code">Copier</button>
         </div>
         <pre id="cfg-code" class="code"></pre>
@@ -293,9 +342,9 @@
       <div class="section-head row">
         <div>
           <h2 id="quiz-title">Quiz</h2>
-          <p>Dix questions pour vérifier que tout est clair.</p>
+          <p id="quiz-intro">Questions adaptées à votre niveau.</p>
         </div>
-        <div class="quiz-score">Score <strong id="quiz-score">0 / 10</strong>
+        <div class="quiz-score">Score <strong id="quiz-score">0 / 5</strong>
           <button id="quiz-reset" class="btn ghost" type="button">Recommencer</button></div>
       </div>
       <ol id="quiz-list" class="quiz"></ol>
